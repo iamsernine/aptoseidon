@@ -1,0 +1,5 @@
+{
+  "name": "Aptoseidon",
+  "description": "A minimal crypto risk analysis dashboard for the Aptos ecosystem, featuring AI-driven reports and wallet integration.",
+  "requestFramePermissions": []
+}
