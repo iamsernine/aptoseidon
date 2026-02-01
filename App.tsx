@@ -54,54 +54,53 @@ const App: React.FC = () => {
     setPreCheckData(null); // Reset UI
 
     try {
-      // 1. Optimistically Request full report (expect 402)
+      // 1. Check if we need to pay
       let currentHash = null;
 
-      try {
-        await postAudit({
-          project_url: inputUrl.trim(),
-          project_type: projectType,
-          wallet_address: account.address.toString(),
-          payment_tx_hash: null,
-          request_mode: "full",
-          evidence_only: evidenceOnly
-        });
-        // If success immediately (already paid?), fine
-      } catch (e) {
-        if (e instanceof PaymentRequiredError) {
-          console.log("402 Payment Required:", e.message);
-          // 2. Prompt Wallet to Pay using Adapter
-          const txHash = await submitPayment(
-            signAndSubmitTransaction,
-            e.recipient,
-            e.amount
-          );
-          currentHash = txHash;
-        } else {
-          throw e; // Other error
+      if (!evidenceOnly) {
+        try {
+          await postAudit({
+            project_url: inputUrl.trim(),
+            project_type: projectType,
+            wallet_address: account.address.toString(),
+            payment_tx_hash: null,
+            request_mode: "full",
+            evidence_only: false
+          });
+          // If success immediately (already paid or free?), fine
+        } catch (e) {
+          if (e instanceof PaymentRequiredError) {
+            console.log("402 Payment Required:", e.message);
+            // 2. Prompt Wallet to Pay using Adapter
+            const txHash = await submitPayment(
+              signAndSubmitTransaction,
+              e.recipient,
+              e.amount
+            );
+            currentHash = txHash;
+          } else {
+            throw e; // Other error
+          }
         }
       }
 
-      // 3. Retry with Hash if we just paid
-      if (currentHash) {
-        const res = await postAudit({
-          project_url: inputUrl.trim(),
-          project_type: projectType,
-          wallet_address: account.address.toString(),
-          payment_tx_hash: currentHash,
-          request_mode: "full",
-          evidence_only: evidenceOnly
-        });
+      // 3. Request Analysis (with hash if paid, or without if evidence_only)
+      const res = await postAudit({
+        project_url: inputUrl.trim(),
+        project_type: projectType,
+        wallet_address: account.address.toString(),
+        payment_tx_hash: currentHash,
+        request_mode: "full",
+        evidence_only: evidenceOnly
+      });
 
-        if (res.status === 'ok') {
-          setPreCheckData(res.preCheck);
+      if (res.status === 'ok' || res.status === 'pre_check_ok') {
+        setPreCheckData(res.preCheck);
+        if ('report' in res) {
           setRiskReport(res.report);
           setJobId(res.jobId);
-          setHasPaid(true);
         }
-      } else {
-        // If we didn't pay (e.g. 402 but user cancelled), we don't proceed
-        // Or if the first request succeeded unexpectedly (cache?)
+        setHasPaid(!evidenceOnly || !!currentHash);
       }
 
     } catch (e) {
@@ -167,11 +166,11 @@ const App: React.FC = () => {
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 border border-neutral-800 rounded-full mb-4 bg-neutral-900/50">
             <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-            <span className="text-xs uppercase tracking-widest text-neutral-400">Hackathon Build v0.1</span>
+            <span className="text-xs uppercase tracking-widest text-neutral-400">Security Suite v1.0</span>
           </div>
           <h2 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">Dive deep into <br />on-chain risks.</h2>
           <p className="text-neutral-400 max-w-lg mx-auto">
-            AI-powered due diligence for the Aptos ecosystem. Paste a contract address or URL to generate an instant risk profile.
+            Professional-grade due diligence for the Aptos ecosystem. Paste a contract address or name to generate an instant risk profile.
           </p>
         </div>
 
@@ -191,7 +190,11 @@ const App: React.FC = () => {
             <div className="flex-1 relative">
               <input
                 type="text"
-                placeholder="Paste URL, Contract Address, or Project Name..."
+                placeholder={
+                  projectType === ProjectType.COIN ? "Enter coin name (e.g. Solana)..." :
+                    projectType === ProjectType.SMART_CONTRACT ? "Enter Aptos contract address (0x...)..." :
+                      "Enter project name or URL..."
+                }
                 className="w-full h-full bg-neutral-900 text-white px-4 py-3 outline-none placeholder:text-neutral-600 font-mono text-sm"
                 value={inputUrl}
                 onChange={(e) => setInputUrl(e.target.value)}
@@ -238,6 +241,7 @@ const App: React.FC = () => {
             onUnlock={handleAnalyze}
             isUnlocking={isUnlocking}
             hasPaid={hasPaid}
+            isEvidenceOnly={evidenceOnly}
           />
         )}
 
@@ -256,7 +260,7 @@ const App: React.FC = () => {
       {/* Footer */}
       <footer className="w-full border-t border-neutral-900 py-8 bg-black z-10">
         <div className="max-w-5xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center text-xs text-neutral-600">
-          <p>© 2024 Aptoseidon Labs. Built for the Hackathon.</p>
+          <p>© 2024 Aptoseidon Labs. All rights reserved.</p>
           <div className="flex gap-4 mt-4 md:mt-0 font-mono">
             <span>v1.0.0</span>
             <span>Status: <span className="text-green-900">Operational</span></span>
