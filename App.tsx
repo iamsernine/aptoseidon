@@ -127,12 +127,12 @@ const App: React.FC = () => {
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Logo Container with visual crop for text */}
-            <div className="w-10 h-10 relative overflow-hidden">
+            <div className="w-10 h-10 relative">
               <img
-                src="logo.png"
+                src="/logo.png"
                 alt="Aptoseidon"
-                className="w-full h-[140%] object-cover object-top absolute top-0 left-0 max-w-none"
-                style={{ filter: 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.5))' }}
+                className="w-full h-full object-contain"
+                style={{ filter: 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.4))' }}
               />
             </div>
             <h1 className="text-xl font-bold tracking-tighter">APTOSEIDON</h1>
