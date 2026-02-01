@@ -7,12 +7,12 @@ import type { PreCheckData, RiskReport } from '../types';
 import type { ProjectType } from '../types';
 
 // In dev with Vite, use relative URLs so the proxy forwards to the backend (no CORS).
+// Use '/api' as base to match Netlify proxy, or VITE_API_URL if provided.
 const getApiBase = (): string => {
-  if (typeof import.meta === 'undefined') return 'http://localhost:8000';
   const env = (import.meta as any).env;
   if (env?.VITE_API_URL) return env.VITE_API_URL;
-  if (env?.DEV) return ''; // Vite dev: use proxy
-  return 'http://localhost:8000';
+  if (env?.DEV) return ''; // Vite dev: use local proxy
+  return '/api'; // Production: use Netlify proxy
 };
 const API_BASE = getApiBase();
 

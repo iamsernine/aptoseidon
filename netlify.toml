@@ -8,4 +8,5 @@
   status = 200
 
 [build.environment]
+  VITE_API_URL = "https://aptoseidonback.onrender.com"
   NODE_VERSION = "20"
