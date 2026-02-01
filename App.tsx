@@ -1,10 +1,10 @@
-
 import React, { useState } from 'react';
 import { ProjectType, PreCheckData, RiskReport } from './types';
 import { submitPayment, WalletName } from './services/walletService';
-import { postAudit, postReputationRate, getReputationRatings, PaymentRequiredError } from './services/api';
+import { postAudit, postReputationRate, getReputationRatings, PaymentRequiredError, fetchHistory, HistoryItem } from './services/api';
 import { Button } from './components/Button';
 import { ResultsSection } from './components/ResultsSection';
+import { HistorySidebar } from './components/HistorySidebar';
 import { Terminal, Wallet, ArrowRight } from 'lucide-react';
 import { useWallet } from '@aptos-labs/wallet-adapter-react';
 
@@ -26,9 +26,36 @@ const App: React.FC = () => {
   const [auditError, setAuditError] = useState<string | null>(null);
   const [evidenceOnly, setEvidenceOnly] = useState(false);
 
+  // History State
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+  // Load history on connection
+  React.useEffect(() => {
+    if (connected && account?.address) {
+      loadHistory(account.address.toString());
+    } else {
+      setHistory([]);
+    }
+  }, [connected, account?.address]);
+
+  const loadHistory = async (address: string) => {
+    setIsHistoryLoading(true);
+    try {
+      const res = await fetchHistory(address);
+      if (res.status === 'ok') {
+        setHistory(res.history);
+      }
+    } catch (e) {
+      console.error("Failed to load history:", e);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
+
   // Handlers
   const handleConnect = (name: WalletName) => {
-    // Adapter uses specific wallet names. Petra is usually "Petra"
     connect(name as any);
   };
 
@@ -67,11 +94,9 @@ const App: React.FC = () => {
             request_mode: "full",
             evidence_only: false
           });
-          // If success immediately (already paid or free?), fine
         } catch (e) {
           if (e instanceof PaymentRequiredError) {
             console.log("402 Payment Required:", e.message);
-            // 2. Prompt Wallet to Pay using Adapter
             const txHash = await submitPayment(
               signAndSubmitTransaction,
               e.recipient,
@@ -79,12 +104,12 @@ const App: React.FC = () => {
             );
             currentHash = txHash;
           } else {
-            throw e; // Other error
+            throw e;
           }
         }
       }
 
-      // 3. Request Analysis (with hash if paid, or without if evidence_only)
+      // 3. Request Analysis
       const res = await postAudit({
         project_url: inputUrl.trim(),
         project_type: projectType,
@@ -101,11 +126,15 @@ const App: React.FC = () => {
           setJobId(res.jobId);
         }
         setHasPaid(!evidenceOnly || !!currentHash);
+
+        // Refresh history
+        if (connected && account?.address) {
+          loadHistory(account.address.toString());
+        }
       }
 
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Analysis failed';
-      // User rejected is common
       if (typeof msg === 'string' && msg.includes('User rejected')) {
         setAuditError('Transaction cancelled.');
       } else {
@@ -117,6 +146,24 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSelectHistoryItem = (item: HistoryItem) => {
+    setPreCheckData(item.report.preCheck);
+    setRiskReport(item.report.report);
+    setJobId(item.job_id);
+    setHasPaid(true);
+    setIsHistoryOpen(false);
+
+    // Smooth scroll to results
+    setTimeout(() => {
+      document.getElementById('results-view')?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
+
+  const getPlaceholder = () => {
+    if (projectType === ProjectType.SMART_CONTRACT) return "https://explorer.aptoslabs.com/account/0x1...";
+    return "https://coin-project-website.com";
+  };
+
   return (
     <div className="min-h-screen flex flex-col relative overflow-x-hidden">
       {/* Background Decor */}
@@ -126,7 +173,6 @@ const App: React.FC = () => {
       <header className="w-full border-b border-neutral-800 bg-black/80 backdrop-blur-md z-50 sticky top-0">
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* Logo Container with visual crop for text */}
             <div className="w-10 h-10 relative">
               <img
                 src="/logo.png"
@@ -140,67 +186,62 @@ const App: React.FC = () => {
 
           <div className="flex items-center gap-4">
             {!connected || !account ? (
-              <div className="flex gap-2">
-                <Button onClick={() => handleConnect('Pontem')} variant="outline" className="text-xs px-3 py-1.5 hidden md:flex">Pontem</Button>
-                <Button onClick={() => handleConnect('Martian')} variant="outline" className="text-xs px-3 py-1.5 hidden md:flex">Martian</Button>
-                <Button onClick={() => handleConnect('Petra')} variant="primary" className="text-xs px-4">
-                  <Wallet className="w-4 h-4" /> Connect
-                </Button>
-              </div>
+              <Button onClick={() => handleConnect('Petra' as WalletName)} variant="outline" size="sm">
+                Connect Wallet
+              </Button>
             ) : (
-              <div className="flex items-center gap-2 px-3 py-1.5 border border-neutral-800 rounded bg-neutral-900 cursor-pointer" onClick={handleDisconnect}>
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                <span className="text-xs font-mono text-neutral-400">
-                  {account.address.toString().slice(0, 6)}...{account.address.toString().slice(-4)}
-                </span>
+              <div className="flex items-center gap-3">
+                <div className="flex flex-col items-end hidden md:flex">
+                  <span className="text-[10px] font-mono text-neutral-500 uppercase">Testnet Mode</span>
+                  <span className="text-xs font-mono text-blue-400">
+                    {account.address.toString().slice(0, 6)}...{account.address.toString().slice(-4)}
+                  </span>
+                </div>
+                <button onClick={handleDisconnect} className="p-1 hover:text-red-500 transition-colors">
+                  <Wallet size={18} />
+                </button>
               </div>
             )}
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 w-full max-w-3xl mx-auto px-6 py-12 z-10">
-
-        {/* Hero */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-3 py-1 border border-neutral-800 rounded-full mb-4 bg-neutral-900/50">
-            <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-            <span className="text-xs uppercase tracking-widest text-neutral-400">Security Suite v1.0</span>
-          </div>
-          <h2 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">Dive deep into <br />on-chain risks.</h2>
-          <p className="text-neutral-400 max-w-lg mx-auto">
-            Professional-grade due diligence for the Aptos ecosystem. Paste a contract address or name to generate an instant risk profile.
+      {/* Hero / Input Section */}
+      <main className="flex-1 w-full max-w-5xl mx-auto px-6 pt-16 pb-24 relative z-10">
+        <div className="mb-12">
+          <h2 className="text-4xl md:text-6xl font-black mb-4 tracking-tighter uppercase italic">
+            Agentic Security <br />
+            <span className="text-blue-500">Suite v1.0</span>
+          </h2>
+          <p className="text-neutral-500 max-w-2xl text-lg font-medium leading-relaxed">
+            Verify Aptos projects with autonomous security agents.
+            Real-time forensics for coins, smart contracts, and protocols.
           </p>
         </div>
 
-        {/* Input Form */}
-        <div className="bg-black border border-neutral-800 p-1 mb-8 shadow-2xl shadow-neutral-900/50">
-          <div className="flex flex-col md:flex-row gap-0 md:gap-1 bg-neutral-900/30 p-1">
-            <select
-              value={projectType}
-              onChange={(e) => setProjectType(e.target.value as ProjectType)}
-              className="bg-neutral-900 text-white text-sm px-4 py-3 outline-none border-b md:border-b-0 md:border-r border-neutral-800 md:w-48 appearance-none font-mono"
-            >
-              {Object.values(ProjectType).map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
+        {/* Input Card */}
+        <div className="border border-neutral-800 bg-neutral-900/30 backdrop-blur-md mb-12">
+          <div className="flex flex-col md:flex-row border-b border-neutral-800">
+            {Object.values(ProjectType).map((t) => (
+              <button
+                key={t}
+                onClick={() => setProjectType(t)}
+                className={`px-6 py-4 text-xs font-mono uppercase tracking-widest transition-all ${projectType === t ? 'bg-blue-600 text-white' : 'text-neutral-500 hover:bg-neutral-800'
+                  }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
 
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                placeholder={
-                  projectType === ProjectType.COIN ? "Enter coin name (e.g. Solana)..." :
-                    projectType === ProjectType.SMART_CONTRACT ? "Enter Aptos contract address (0x...)..." :
-                      "Enter project name or URL..."
-                }
-                className="w-full h-full bg-neutral-900 text-white px-4 py-3 outline-none placeholder:text-neutral-600 font-mono text-sm"
-                value={inputUrl}
-                onChange={(e) => setInputUrl(e.target.value)}
-              />
-            </div>
-
+          <div className="p-1 flex flex-col md:flex-row items-center gap-1">
+            <input
+              type="text"
+              value={inputUrl}
+              onChange={(e) => setInputUrl(e.target.value)}
+              placeholder={getPlaceholder()}
+              className="flex-1 bg-transparent border-none focus:ring-0 p-4 font-mono text-sm placeholder:text-neutral-700"
+            />
             <Button
               onClick={handleAnalyze}
               disabled={!inputUrl || isAnalyzing}
@@ -212,7 +253,6 @@ const App: React.FC = () => {
             </Button>
           </div>
 
-          {/* Item #8: Evidence Only Mode Toggle */}
           <div className="flex items-center gap-2 px-4 py-2 border-t border-neutral-800 bg-black/40">
             <input
               type="checkbox"
@@ -233,40 +273,51 @@ const App: React.FC = () => {
             {auditError}
           </div>
         )}
-        {preCheckData && (
-          <ResultsSection
-            preCheckData={preCheckData}
-            report={riskReport}
-            jobId={jobId}
-            onUnlock={handleAnalyze}
-            isUnlocking={isUnlocking}
-            hasPaid={hasPaid}
-            isEvidenceOnly={evidenceOnly}
-          />
-        )}
 
-        {/* Empty State / Decor */}
+        <div id="results-view">
+          {preCheckData && (
+            <ResultsSection
+              preCheckData={preCheckData}
+              report={riskReport}
+              jobId={jobId}
+              onUnlock={handleAnalyze}
+              isUnlocking={isUnlocking}
+              hasPaid={hasPaid}
+              isEvidenceOnly={evidenceOnly}
+            />
+          )}
+        </div>
+
         {!preCheckData && (
           <div className="border border-dashed border-neutral-800 p-8 text-center">
             <Terminal className="w-8 h-8 text-neutral-700 mx-auto mb-3" />
-            <p className="text-neutral-600 text-sm font-mono">
+            <p className="text-neutral-600 text-sm font-mono text-center w-full block">
               Waiting for input stream...
             </p>
           </div>
         )}
-
       </main>
 
-      {/* Footer */}
       <footer className="w-full border-t border-neutral-900 py-8 bg-black z-10">
         <div className="max-w-5xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center text-xs text-neutral-600">
-          <p>© 2024 Aptoseidon Labs. All rights reserved.</p>
-          <div className="flex gap-4 mt-4 md:mt-0 font-mono">
-            <span>v1.0.0</span>
-            <span>Status: <span className="text-green-900">Operational</span></span>
+          <div className="flex items-center gap-2">
+            <span className="font-bold tracking-tighter">APTOSEIDON</span>
+            <span className="font-mono border border-neutral-800 px-1 rounded">v1.0.0</span>
           </div>
+          <p className="mt-4 md:mt-0 font-mono text-neutral-500 uppercase tracking-widest">
+            Non-Investment Grade Assessment
+          </p>
         </div>
       </footer>
+
+      {/* History Sidebar */}
+      <HistorySidebar
+        history={history}
+        isLoading={isHistoryLoading}
+        isOpen={isHistoryOpen}
+        onToggle={() => setIsHistoryOpen(!isHistoryOpen)}
+        onSelect={handleSelectHistoryItem}
+      />
     </div>
   );
 };

@@ -115,3 +115,16 @@ export async function postReputationRate(jobId: string, rating: 'up' | 'down'): 
 export async function getReputationRatings(jobId: string): Promise<{ job_id: string; up: number; down: number }> {
   return request(`/reputation/rate/${encodeURIComponent(jobId)}`);
 }
+
+export type HistoryItem = {
+  job_id: string;
+  project_url: string;
+  project_type: ProjectType;
+  created_at: string;
+  report: AuditResponseOk;
+};
+
+/** GET /history/{wallet_address} – fetch user search history. */
+export async function fetchHistory(walletAddress: string): Promise<{ status: string; history: HistoryItem[] }> {
+  return request(`/history/${encodeURIComponent(walletAddress)}`);
+}
