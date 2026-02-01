@@ -210,12 +210,12 @@ const App: React.FC = () => {
       <main className="flex-1 w-full max-w-5xl mx-auto px-6 pt-16 pb-24 relative z-10">
         <div className="mb-12">
           <h2 className="text-4xl md:text-6xl font-black mb-4 tracking-tighter uppercase italic">
-            Agentic Security <br />
-            <span className="text-blue-500">Suite v1.0</span>
+            Trust & Worthiness <br />
+            <span className="text-blue-500">Intelligence v1.0</span>
           </h2>
           <p className="text-neutral-500 max-w-2xl text-lg font-medium leading-relaxed">
-            Verify Aptos projects with autonomous security agents.
-            Real-time forensics for coins, smart contracts, and protocols.
+            Verify the true credibility of any Aptos project.
+            Autonomous agentic forensics for Coins, NFTs, and Smart Contracts.
           </p>
         </div>
 
