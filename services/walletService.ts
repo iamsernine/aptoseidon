@@ -49,8 +49,7 @@ export const submitPayment = async (
   // Payload for AptosCoin transfer (v2 Adapter Format)
   const payload = {
     data: {
-      function: "0x1::coin::transfer",
-      typeArguments: ["0x1::aptos_coin::AptosCoin"],
+      function: "0x1::aptos_account::transfer",
       functionArguments: [recipient, amountOctas]
     }
   };
