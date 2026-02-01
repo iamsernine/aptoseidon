@@ -1,0 +1,30 @@
+# MVP Production Readiness Plan
+
+This plan addresses the critical gaps identified in the report: persistence and deployment configuration.
+
+## Proposed Changes
+
+### [Backend] Persistence Layer
+#### [MODIFY] [models.py](file:///c:/Users/sernine/Desktop/aptoseidon/aptoseidon-agentic-backend/app/models.py)
+- Add SQLAlchemy or Tortoise models for `AnalysisResult` and [Reputation](file:///c:/Users/sernine/Desktop/aptoseidon/aptoseidon-agentic-frontend/services/api.ts#99-106).
+
+#### [MODIFY] [main.py](file:///c:/Users/sernine/Desktop/aptoseidon/aptoseidon-agentic-backend/app/main.py)
+- Initialize a database connection (SQLite for simplicity).
+- Replace `mock_ratings` with database queries.
+- Store [AnalyzeRequest](file:///c:/Users/sernine/Desktop/aptoseidon/aptoseidon-agentic-backend/app/main.py#17-24) results in the database to enable caching.
+
+### [Frontend] Production Config
+#### [NEW] [netlify.toml](file:///c:/Users/sernine/Desktop/aptoseidon/aptoseidon-agentic-frontend/netlify.toml)
+- Define build commands and proxy redirects to the backend.
+
+## Verification Plan
+
+### Automated Tests
+- Run `pytest` (if existing) or write a basic `test_db.py` to verify rating persistence.
+- `npm run build` locally to ensure the frontend compiles for production.
+
+### Manual Verification
+1.  Submit an analysis.
+2.  Restart the backend server.
+3.  Refresh the frontend and verify the analysis/rating still exists (if caching implemented).
+4.  Mock a production build and verify the `/api` proxy works.

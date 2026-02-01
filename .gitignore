@@ -1,0 +1,13 @@
+.env
+*.env
+__pycache__/
+.venv/
+node_modules/
+dist/
+build/
+.DS_Store
+aptoseidon.db
+aptoseidon.db-journal
+*.log
+.idea/
+.vscode/

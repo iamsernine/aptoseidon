@@ -1,0 +1,78 @@
+# Aptoseidon: Technical Audit & MVP Report
+
+## 1. Executive Summary
+Aptoseidon is a sophisticated, agent-driven crypto analysis platform built on the Aptos blockchain using x402 micropayments. The application is currently in a "Hackathon Build v0.1" state, with a strong core architecture but requiring persistence and production hardening to be "MVP Ready."
+
+---
+
+## 2. Current State Assessment
+
+### 2.1 Backend Architecture (Python/FastAPI)
+- **Multi-Agent System**: Comprehensive orchestration of multiple specialized agents:
+  - `CollectorAgent`: Data acquisition (URLs, contracts).
+  - `RiskAgent`: Red-flag detection.
+  - `CredibilityAgent`: Legitimacy assessment.
+  - `SynthesisAgent`: Final judgment logic.
+  - `NarrativeAgent`: Human-readable summary generation.
+  - `ContradictionAgent`: Sanity check for agent hallucinations.
+- **Trust Layer**: A deterministic Rules engine ([rules.py](file:///c:/Users/sernine/Desktop/aptoseidon/aptoseidon-agentic-backend/app/agents/rules.py)) runs before LLM agents to ensure verifiable base-layer facts.
+- **Payment Verification**: Solid implementation of x402 on Aptos Testnet. It successfully verifies transaction success, recipient address, and amount before unlocking full analysis.
+- **Efficiency**: Includes a **Budget Controller** that skips expensive LLM calls if deterministic rules already provide a clear "FAIL" or "PASS" (e.g., extremely new domains).
+
+### 2.2 Frontend Architecture (React/Vite/TypeScript)
+- **UI/UX**: Premium, terminal-inspired dark theme with smooth transitions.
+- **Wallet Integration**: Integrated with `@aptos-labs/wallet-adapter-react`, supporting Petra, Martian, and Pontem.
+- **Payment Flow**: Correctly handles the HTTP 402 "Payment Required" response by prompting a wallet transaction and retrying the request with the transaction hash.
+- **Analysis Views**: Displays risk scores, breakdown of signals (positive/negative), and narrative summaries.
+
+---
+
+## 3. Findings & Gaps
+
+### 3.1 Persistence
+> [!WARNING]
+> **Data Loss Risk**: The Reputation/Rating system is currently using a global Python dictionary `mock_ratings`. All ratings are lost whenever the backend restarts.
+
+### 3.2 Error Handling
+- The backend relies on LLM stability. If an LLM provider (OpenAI/Gemini) is down, the synthesis fails partially.
+- Frontend lacks a robust "Retry" mechanism for failed agent streams.
+
+### 3.3 Production Readiness
+- **Environment Variables**: API keys are currently in a [.env](file:///c:/Users/sernine/Desktop/aptoseidon/aptoseidon-agentic-backend/.env) file. These need to be migrated to Secret Management (Netlify/Backend Host).
+- **CORS/Security**: CSP is addressed in the code but needs strict verification for production domains.
+- **Node.js/Python Versions**: Versions are pinned in [pyproject.toml](file:///c:/Users/sernine/Desktop/aptoseidon/aptoseidon-agentic-backend/pyproject.toml) and [package.json](file:///c:/Users/sernine/Desktop/aptoseidon/aptoseidon-agentic-frontend/package.json), which is good.
+
+---
+
+## 4. MVP To-Do List
+
+### Phase 1: Persistence & Reliability
+- [ ] **Database Integration**: Replace `mock_ratings` with a real database (SQLite for MVP, PostgreSQL for Production).
+- [ ] **Session/Job Tracking**: Store analysis results so users don't have to pay twice for the same URL within a short window (Cache layer).
+
+### Phase 2: Production Hardening
+- [ ] **Environment Setup**: Configure `VITE_API_URL` and backend secrets.
+- [ ] **Rate Limiting**: Add IP-based rate limiting for the "Free Pre-check" to prevent API abuse.
+- [ ] **Advanced Logging**: Integrate with a tool like Sentry or Logfire for error tracking.
+
+### Phase 3: Deployment
+- [ ] **Netlify Configuration**: Create `netlify.toml` with proper redirect/proxy rules to avoid CORS issues.
+- [ ] **Backend Hosting**: Deploy the FastAPI app to a cloud provider (Render, Railway, or Fly.io).
+
+---
+
+## 5. Deployment Guide (Netlify)
+To deploy the frontend to Netlify, you will need a `netlify.toml` and to set the following Environment Variables in the Netlify Dashboard:
+- `VITE_API_URL`: The URL of your deployed backend.
+
+### Recommended YAML (`netlify.toml`)
+```toml
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/api/*"
+  to = "https://your-backend-url.com/:splat"
+  status = 200
+```

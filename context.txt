@@ -1,0 +1,283 @@
+
+
+# Aptoseidon — Updated Application Context (Agent-Based Architecture)
+
+## 1. Project Overview
+
+**Aptoseidon** is a payment-gated crypto analysis application built on **Aptos x402**.
+It evaluates crypto projects (URLs, whitepapers, repositories, token data) using a **multi-agent AI system** and returns a structured trust report.
+
+Users pay a **micropayment (x402)** to request an analysis.
+The result includes:
+
+* Risk indicators
+* Credibility assessment
+* Scam likelihood
+* Confidence score
+* Plain-language investment guidance (non-financial advice)
+
+The user can optionally **rate the AI output using ERC-8004**, contributing to reputation tracking.
+
+---
+
+## 2. Why Agents (Design Rationale)
+
+Agents are used to:
+
+* Separate concerns
+* Improve explainability
+* Reduce hallucination risk
+* Allow future replacement or benchmarking of agents
+
+Agents are **off-chain**, deterministic, and orchestrated by a backend service.
+
+---
+
+## 3. Agent Roles
+
+### 3.1 Collector Agent
+
+**Purpose:** Data acquisition
+
+Inputs:
+
+* Project URL
+* Contract address (optional)
+* GitHub / Docs / Whitepaper
+
+Tasks:
+
+* Fetch website metadata
+* Extract token info
+* Identify team signals
+* Detect missing or broken links
+
+Output:
+
+```json
+{
+  "project_name": "...",
+  "domain_age": "...",
+  "contracts_found": true,
+  "docs_present": false,
+  "raw_signals": {...}
+}
+```
+
+---
+
+### 3.2 Risk Agent
+
+**Purpose:** Red-flag detection
+
+Checks:
+
+* Anonymous team
+* Copy-paste contracts
+* Centralized ownership
+* Unrealistic promises
+* Token distribution anomalies
+
+Output:
+
+```json
+{
+  "risk_score": 0.72,
+  "risk_flags": ["anonymous_team", "locked_liquidity_missing"]
+}
+```
+
+---
+
+### 3.3 Credibility Agent
+
+**Purpose:** Legitimacy signals
+
+Checks:
+
+* Reputable integrations
+* GitHub activity
+* Community presence
+* Consistency across sources
+
+Output:
+
+```json
+{
+  "credibility_score": 0.58,
+  "positive_signals": ["active_repo", "public roadmap"]
+}
+```
+
+---
+
+### 3.4 Synthesis Agent
+
+**Purpose:** Final judgment
+
+Inputs:
+
+* Outputs of all agents
+
+Produces:
+
+* Final confidence score
+* Scam probability range
+* Natural-language summary
+* Clear reasoning trace
+
+Output:
+
+```json
+{
+  "final_score": 0.63,
+  "verdict": "Medium Risk",
+  "confidence": 0.81,
+  "summary": "Project shows partial legitimacy but lacks transparency."
+}
+```
+
+---
+
+## 4. Backend Architecture
+
+### 4.1 Stack
+
+* Python
+* FastAPI
+* Free LLM API (Gemini / Groq)
+* SQLite or JSON storage
+* Docker
+* Aptos x402 server (Node.js or integrated service)
+
+---
+
+### 4.2 Orchestration Logic
+
+```python
+def analyze_project(input):
+    data = collector_agent(input)
+    risk = risk_agent(data)
+    credibility = credibility_agent(data)
+    result = synthesis_agent(risk, credibility)
+    return result
+```
+
+No agent framework required initially.
+
+---
+
+## 5. Payment Flow (x402)
+
+1. Client requests analysis
+2. Server responds with `402 Payment Required`
+3. Client pays via Aptos
+4. Server verifies transaction
+5. Agent pipeline runs
+6. Report is returned
+
+Agents run **only after payment verification**.
+
+---
+
+## 6. Frontend Architecture
+
+### Stack
+
+* React / Next.js
+* Wallet adapter (Petra / Martian)
+* Minimal UI
+* API calls to backend
+
+Frontend **does not directly call agents**.
+
+---
+
+## 7. Content Security Policy (CSP) Issue — Root Cause & Fix
+
+### 7.1 The Error
+
+```
+http://localhost:3000/.well-known/appspecific/com.chrome.devtools.json
+violates Content Security Policy: default-src 'none'
+```
+
+### 7.2 Why This Happens
+
+* Your server sets:
+
+  ```
+  Content-Security-Policy: default-src 'none'
+  ```
+* Chrome DevTools tries to access an internal endpoint
+* `connect-src` is missing
+* Browser blocks the request
+
+This is **not a crypto or x402 issue**.
+It is a **strict CSP misconfiguration**.
+
+---
+
+## 8. Correct CSP Configuration (Recommended)
+
+### 8.1 Minimal Safe CSP for Dev
+
+```http
+Content-Security-Policy:
+  default-src 'self';
+  connect-src 'self' http://localhost:3000 ws:;
+  script-src 'self' 'unsafe-inline';
+  style-src 'self' 'unsafe-inline';
+```
+
+---
+
+### 8.2 Express.js Example
+
+```js
+app.use((req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; connect-src 'self' http://localhost:3000 ws:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
+  );
+  next();
+});
+```
+
+---
+
+### 8.3 Why This Fix Works
+
+* Allows browser tooling connections
+* Keeps API locked to self
+* Does not weaken security excessively
+* Compatible with x402 flow
+
+---
+
+## 9. Security Model
+
+* Agents are isolated
+* No direct client → agent access
+* Payments validated before compute
+* CSP prevents unauthorized connections
+* Results are deterministic and auditable
+
+---
+
+## 10. What Goes On-Chain vs Off-Chain
+
+### On-chain:
+
+* Payment
+* Optional rating (ERC-8004)
+* Report hash
+
+### Off-chain:
+
+* Agent logic
+* LLM calls
+* Raw data
+* Reasoning
+
+---
