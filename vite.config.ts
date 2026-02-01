@@ -23,7 +23,8 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/analyze': { target: env.VITE_API_URL || 'http://localhost:8001', changeOrigin: true },
         '/reputation': { target: env.VITE_API_URL || 'http://localhost:8001', changeOrigin: true },
-        '/audit': { target: env.VITE_API_URL || 'http://localhost:8001', changeOrigin: true }, // Keep backward compat URL if needed or remove
+        '/history': { target: env.VITE_API_URL || 'http://localhost:8001', changeOrigin: true },
+        '/audit': { target: env.VITE_API_URL || 'http://localhost:8001', changeOrigin: true },
       },
     },
     define: {
