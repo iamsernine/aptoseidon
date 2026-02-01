@@ -78,6 +78,90 @@ export const ResultsSection: React.FC<ResultsSectionProps> = ({
         </div>
       </div>
 
+      {/* Free Market & Trust Data (Visible if data present) */}
+      {report && (
+        <div className="space-y-6">
+          {/* Market Intelligence */}
+          {report.marketData && (
+            <div className="border border-neutral-800 bg-neutral-900/50 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-blue-500" />
+                  Market Intelligence
+                </h3>
+                <span className="text-xs font-mono text-neutral-500 uppercase">Live via CoinGecko</span>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-3 bg-black border border-neutral-800">
+                  <div className="text-neutral-500 text-xs uppercase mb-1">Price (USD)</div>
+                  <div className="text-xl font-mono text-white">
+                    ${report.marketData.price_usd.toLocaleString()}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-black border border-neutral-800">
+                  <div className="text-neutral-500 text-xs uppercase mb-1">24h Change</div>
+                  <div className={`text-xl font-mono flex items-center gap-1 ${report.marketData.change_24h >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {report.marketData.change_24h >= 0 ? '▲' : '▼'}
+                    {Math.abs(report.marketData.change_24h).toFixed(2)}%
+                  </div>
+                </div>
+
+                <div className="p-3 bg-black border border-neutral-800">
+                  <div className="text-neutral-500 text-xs uppercase mb-1">Market Cap</div>
+                  <div className="text-xl font-mono text-white">
+                    ${(report.marketData.market_cap / 1_000_000_000).toFixed(2)}B
+                  </div>
+                </div>
+
+                <div className="p-3 bg-black border border-neutral-800">
+                  <div className="text-neutral-500 text-xs uppercase mb-1">24h Volume</div>
+                  <div className="text-xl font-mono text-white">
+                    ${(report.marketData.vol_24h / 1_000_000).toFixed(2)}M
+                  </div>
+                </div>
+              </div>
+
+              {/* TradingView Chart */}
+              <div className="mt-4 h-[400px] w-full border border-neutral-800">
+                <AdvancedRealTimeChart
+                  symbol={`BINANCE:${report.marketData.symbol}USD`}
+                  theme="dark"
+                  autosize
+                  hide_side_toolbar={false}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Deterministic Trust Layer (Rules) */}
+          {report.ruleResults && report.ruleResults.length > 0 && (
+            <div className="border border-neutral-800 bg-neutral-900/50 p-6">
+              <h3 className="text-lg font-bold flex items-center gap-2 mb-4">
+                <Lock className="w-5 h-5 text-neutral-400" />
+                Trust Layer Validation
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {report.ruleResults.map((rule, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 bg-black border border-neutral-800 rounded">
+                    <div>
+                      <span className="text-xs font-mono text-neutral-500 uppercase block">{rule.source}</span>
+                      <span className="text-sm font-medium text-neutral-300">{rule.reason}</span>
+                    </div>
+                    <div className={`text-xs font-bold px-2 py-1 rounded ${rule.status === 'PASS' ? 'bg-green-500/20 text-green-500' :
+                      rule.status === 'FAIL' ? 'bg-red-500/20 text-red-500' : 'bg-yellow-500/20 text-yellow-500'
+                      }`}>
+                      {rule.status}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* AI Report Section - Hidden if Evidence Only */}
       {!isEvidenceOnly && (
         <div className={`border ${hasPaid ? 'border-neutral-700 bg-black' : 'border-neutral-800 bg-neutral-900/30'} p-6 relative transition-all duration-500`}>
@@ -97,85 +181,6 @@ export const ResultsSection: React.FC<ResultsSectionProps> = ({
             </div>
           ) : (
             <div className="space-y-6">
-              {/* Market Intelligence */}
-              {report && report.marketData && (
-                <div className="mb-8 border border-neutral-800 bg-neutral-900/50 p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold flex items-center gap-2">
-                      <Activity className="w-5 h-5 text-blue-500" />
-                      Market Intelligence
-                    </h3>
-                    <span className="text-xs font-mono text-neutral-500 uppercase">Live via CoinGecko</span>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="p-3 bg-black border border-neutral-800">
-                      <div className="text-neutral-500 text-xs uppercase mb-1">Price (USD)</div>
-                      <div className="text-xl font-mono text-white">
-                        ${report.marketData.price_usd.toLocaleString()}
-                      </div>
-                    </div>
-
-                    <div className="p-3 bg-black border border-neutral-800">
-                      <div className="text-neutral-500 text-xs uppercase mb-1">24h Change</div>
-                      <div className={`text-xl font-mono flex items-center gap-1 ${report.marketData.change_24h >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        {report.marketData.change_24h >= 0 ? '▲' : '▼'}
-                        {Math.abs(report.marketData.change_24h).toFixed(2)}%
-                      </div>
-                    </div>
-
-                    <div className="p-3 bg-black border border-neutral-800">
-                      <div className="text-neutral-500 text-xs uppercase mb-1">Market Cap</div>
-                      <div className="text-xl font-mono text-white">
-                        ${(report.marketData.market_cap / 1_000_000_000).toFixed(2)}B
-                      </div>
-                    </div>
-
-                    <div className="p-3 bg-black border border-neutral-800">
-                      <div className="text-neutral-500 text-xs uppercase mb-1">24h Volume</div>
-                      <div className="text-xl font-mono text-white">
-                        ${(report.marketData.vol_24h / 1_000_000).toFixed(2)}M
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* TradingView Chart */}
-                  <div className="mt-4 h-[400px] w-full border border-neutral-800">
-                    <AdvancedRealTimeChart
-                      symbol={`BINANCE:${report.marketData.symbol}USD`}
-                      theme="dark"
-                      autosize
-                      hide_side_toolbar={false}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Deterministic Trust Layer (Rules) */}
-              {report && report.ruleResults && report.ruleResults.length > 0 && (
-                <div className="mb-8 border border-neutral-800 bg-neutral-900/50 p-6">
-                  <h3 className="text-lg font-bold flex items-center gap-2 mb-4">
-                    <Lock className="w-5 h-5 text-neutral-400" />
-                    Trust Layer Validation
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {report.ruleResults.map((rule, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 bg-black border border-neutral-800 rounded">
-                        <div>
-                          <span className="text-xs font-mono text-neutral-500 uppercase block">{rule.source}</span>
-                          <span className="text-sm font-medium text-neutral-300">{rule.reason}</span>
-                        </div>
-                        <div className={`text-xs font-bold px-2 py-1 rounded ${rule.status === 'PASS' ? 'bg-green-500/20 text-green-500' :
-                          rule.status === 'FAIL' ? 'bg-red-500/20 text-red-500' : 'bg-yellow-500/20 text-yellow-500'
-                          }`}>
-                          {rule.status}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* AI Structure Analysis (Compliant) */}
               {report && report.financialAnalysis && (
                 <div className="mb-8 border border-neutral-800 bg-gradient-to-r from-neutral-900 to-black p-6 relative overflow-hidden">
