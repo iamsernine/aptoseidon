@@ -72,33 +72,26 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const text = await res.text();
-    let errDetail = res.statusText;
+    let errData: any = null;
     try {
-      const err = JSON.parse(text);
-      errDetail = err.detail || err.message || res.statusText;
-
-      if (res.status === 402 && err.detail && typeof err.detail === 'object') {
-        throw new PaymentRequiredError(
-          err.detail.recipient,
-          err.detail.amount,
-          err.detail.message || "Payment Required"
-        );
-      }
+      errData = JSON.parse(text);
     } catch {
-      // Not JSON, use the status text or first 100 chars of body
-      errDetail = `HTTP ${res.status}: ${text.slice(0, 100)}`;
+      // Not JSON
     }
 
+    if (res.status === 402 && errData?.detail && typeof errData.detail === 'object') {
+      throw new PaymentRequiredError(
+        errData.detail.recipient,
+        errData.detail.amount,
+        errData.detail.message || "Payment Required"
+      );
+    }
+
+    const errDetail = errData?.detail || errData?.message || `HTTP ${res.status}: ${text.slice(0, 100)}`;
     throw new Error(errDetail);
   }
 
-  try {
-    return await res.json() as Promise<T>;
-  } catch (e) {
-    const text = await res.clone().text();
-    console.error("Failed to parse JSON response:", text.slice(0, 200));
-    throw new Error(`Invalid JSON response from server: ${text.slice(0, 50)}...`);
-  }
+  return res.json() as Promise<T>;
 }
 
 /** POST /analyze – Agentic analysis endpoint */
